@@ -56,7 +56,8 @@ async def blackjack(ctx, bet: float = 0):
     if active is not None and active != ctx.author.id:
         await ctx.send(f'Must wait for {active_display_name(ctx)} to finish their game.')
         return
-
+    
+    bet = round(bet,2)
     try:
         result = start_game(ctx.author.id, bet)
     except Exception as e:
@@ -133,7 +134,7 @@ async def balance(ctx):
 @bot.command()
 async def help(ctx):
     HELP_MESSAGE = '''
-    Blackjack Commands :
+    Blackjack Commands (NOTE: 0 = ACE) :
     !blackjack "bet amount" - starts a new game of blackjack with the bet
     !table (during blackjack) - view the cards of dealer and your cards
     !hit (during blackjack) - adds another card to your hand
@@ -143,8 +144,6 @@ async def help(ctx):
     !winrate - check your current winrate
     !moneyboard - check the top gamblers
     !getmoney
-    
-    NOTE: 0 = ACE
     '''
     await ctx.send(HELP_MESSAGE)    
 
