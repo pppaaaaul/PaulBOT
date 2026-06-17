@@ -1,0 +1,26 @@
+deck
+|--- Deck (class)
+     |--- create_deck
+          shuffle
+          length
+          draw_card
+          print_deck
+
+db
+|--- card_data_access
+     |--- add_card
+          get_cards
+          get_user_cards
+          get_dealer_cards
+          remove_cards
+|--- blackjack_user
+     |--- User (class)
+          |--- get_win_rate
+|--- blackjack_data_access
+     |--- create_user
+          user_in_database
+          contains_enough_money
+          user_in_game
+          start_new_game
+          get_user
+          end_game

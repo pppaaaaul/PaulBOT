@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python bytecode / packaging
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Database (contains real user data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+discord.log
+*.log
+
+# Tooling / IDE caches
+.pytest_cache/
+.ipynb_checkpoints/
+.idea/
+
+# Docs / assistant context
+CLAUDE.md
+
+# Unrelated nested repo (has its own GitHub remote) — better to move this out
+discord-super-bot/
+
+# Uncomment to ignore VS Code config (currently shared: portable, no secrets)
+# .vscode/
