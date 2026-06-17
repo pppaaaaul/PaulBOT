@@ -20,10 +20,6 @@ COMMAND_PREFIX = '!'
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
 bot.remove_command('help')
 
-@bot.event
-async def on_ready():
-    print(f'Hello, I am {bot.user.name}')
-
 def hand_summary(user_id):
     return f"DEALER: {get_dealer_cards(user_id)}  |  YOU: {get_user_cards(user_id)}"
 
