@@ -29,8 +29,3 @@ discord.log
 # Docs / assistant context
 CLAUDE.md
 
-# Unrelated nested repo (has its own GitHub remote) — better to move this out
-discord-super-bot/
-
-# Uncomment to ignore VS Code config (currently shared: portable, no secrets)
-# .vscode/
