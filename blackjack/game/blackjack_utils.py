@@ -70,6 +70,16 @@ def hand_value(cards):
         aces -= 1
     return total
 
+# Formats a hand for display: "1, 0, 5 (7 or 17)" when an ace can count as 11,
+# "10, 6 (16)" otherwise. The two totals are shown only when an ace fits without
+# busting; otherwise a single value is shown.
+def hand_display(cards):
+    cards_str = ', '.join(map(str, cards))
+    high = hand_value(cards)                                       # best total (ace as 11 where it fits)
+    low = sum(1 if card == ACE else card for card in cards)        # every ace counted as 1
+    total = f'{low} or {high}' if low != high else f'{high}'
+    return f'{cards_str} ({total})'
+
 # Dealer draws until its hand value is 17 or higher.
 def _dealer_play(user_id):
     while hand_value(get_dealer_cards(user_id)) < 17:
@@ -98,7 +108,11 @@ def _resolve(user_id, bet):
 # Ends the game (updates blackjack row, clears cards) and releases the deck.
 def _finish(user_id, new_balance, new_wins, new_losses):
     global _current_deck
-    resulting_hands = f'DEALER: {', '.join(map(str, get_dealer_cards(user_id)))}\nUSER: {', '.join(map(str, get_user_cards(user_id)))}'
+    resulting_hands = (
+        f'DEALER: {hand_display(get_dealer_cards(user_id))}\n'
+        f'USER: {hand_display(get_user_cards(user_id))}\n'
+        f'Your balance is now: {new_balance}.'
+    )
     end_game(user_id, new_balance, new_wins, new_losses)
     _current_deck = None
     # returns a string of the hands

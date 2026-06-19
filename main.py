@@ -21,7 +21,7 @@ bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
 bot.remove_command('help')
 
 def hand_summary(user_id):
-    return f"DEALER: {get_dealer_cards(user_id)}  |  YOU: {get_user_cards(user_id)}"
+    return f"DEALER: {hand_display(get_dealer_cards(user_id))}  |  YOU: {hand_display(get_user_cards(user_id))}"
 
 def active_display_name(ctx):
     """Resolve the active player's display name for the 'must wait' message."""
@@ -169,11 +169,6 @@ async def getmoney(ctx):
     else:
         adjust_balance(user.user_id,50)
         await ctx.send('LMAOO, bum ass gambled his way into a cardboard box. A nice man named walked by and dropped 50 bucks into the coffee cup.')
-
-# This will send the new member a personal message.
-# @bot.event
-# async def on_member_join(member):
-#     await member.send(f"Hello, {member.name}")
 
 # any of the debug stuff will be logged in discord.log
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
