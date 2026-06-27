@@ -149,27 +149,6 @@ class Blackjack(commands.Cog):
             adjust_balance(user.user_id, 50)
             await ctx.send('LMAOO, bum ass gambled his way into a cardboard box. A nice man named walked by and dropped 50 bucks into the coffee cup.')
 
-    @commands.command()
-    async def help(self, ctx):
-        # Lists every blackjack command with a short description of each.
-        HELP_MESSAGE = '''
-        Blackjack Commands :
-        !blackjack "bet amount" - starts a new game of blackjack with the bet
-        !table (during blackjack) - view the cards of dealer and your cards
-        !hit (during blackjack) - adds another card to your hand
-        !stand (during blackjack) - do not add another card to your hand
-        !double (during blackjack) - doubles bet (if possible) and adds another card to your hand
-        !balance - check your current balance
-        !winrate - check your current winrate
-        !moneyboard - check the top gamblers
-        !getmoney
-
-        NOTE: 0 = ACE
-        '''
-        await ctx.send(HELP_MESSAGE)
-
-
 # Registers the Blackjack cog when this extension is loaded by the bot.
 async def setup(bot):
-    bot.remove_command('help')  # this cog provides its own !help
     await bot.add_cog(Blackjack(bot))

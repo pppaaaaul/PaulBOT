@@ -17,6 +17,9 @@ __pycache__/
 *.sqlite
 *.sqlite3
 
+# Runtime state (channel name + last-read id; environment-specific)
+news/state.json
+
 # Logs
 discord.log
 *.log
