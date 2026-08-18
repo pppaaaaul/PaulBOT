@@ -51,6 +51,7 @@ async def load_features():
     # Importants ./blackjack/cog and then runs setup() in the cog file.
     await bot.load_extension('blackjack.cog')
     await bot.load_extension('news.cog')
+    await bot.load_extension('deepseek_model.cog')
 
 
 bot.setup_hook = load_features
