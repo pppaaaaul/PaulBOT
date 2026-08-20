@@ -8,6 +8,7 @@ import asyncio
 import json
 import os
 
+import deepseek_model.llm_client as lc
 from deepseek_model.llm_client import (
     CHUNK_LIMIT,
     LLMConfig,
@@ -310,6 +311,48 @@ def test_ask_llm_fallback_and_errors():
         raise ValueError("Error(test_ask_llm_fallback_and_errors), preferred-url fallback is broken")
 
 
+def test_ask_llm_retry():
+    config = LLMConfig(api_key="sk-test", model="m", base_url="https://api.example.com")
+    original_delay = lc.RETRY_DELAY_SECONDS
+    lc.RETRY_DELAY_SECONDS = 0  # keep the test instant
+    try:
+        # 502 -> single retry on the SAME url; second attempt succeeds.
+        session = FakeSession([FakeResponse(502, json.dumps({"error": {"message": "backend connect failed"}})),
+                               FakeResponse(200, _ok_body("recovered"))])
+        answer, url = asyncio.run(ask_llm(session, config, []))
+        if answer != "recovered" or len(session.requests) != 2:
+            raise ValueError("Error(test_ask_llm_retry), 502 must be retried once on the same url")
+        if session.requests[0][0] != session.requests[1][0]:
+            raise ValueError("Error(test_ask_llm_retry), retry must reuse the same url")
+
+        # 502 twice -> gives up after the single retry (no endless loop).
+        session = FakeSession([FakeResponse(502, ""), FakeResponse(502, "")])
+        try:
+            asyncio.run(ask_llm(session, config, []))
+        except LLMError as e:
+            if e.status != 502 or len(session.requests) != 2:
+                raise ValueError("Error(test_ask_llm_retry), two 502s must raise after exactly two tries")
+        else:
+            raise ValueError("Error(test_ask_llm_retry), persistent 502 must raise")
+
+        # Empty answer (content: null -> retryable) is also retried once.
+        session = FakeSession([FakeResponse(200, json.dumps({"choices": [{"message": {"content": None}}]})),
+                               FakeResponse(200, _ok_body("second try"))])
+        answer, _ = asyncio.run(ask_llm(session, config, []))
+        if answer != "second try" or len(session.requests) != 2:
+            raise ValueError("Error(test_ask_llm_retry), empty answers must be retried once")
+
+        # 404 is NOT retried: falls straight back to the other candidate.
+        session = FakeSession([FakeResponse(404, ""), FakeResponse(200, _ok_body("fallback"))])
+        answer, url = asyncio.run(ask_llm(session, config, []))
+        if answer != "fallback" or url != "https://api.example.com/chat/completions":
+            raise ValueError("Error(test_ask_llm_retry), 404 must fall back, not retry same url")
+        if session.requests[0][0] == session.requests[1][0]:
+            raise ValueError("Error(test_ask_llm_retry), 404 fallback went to the same url")
+    finally:
+        lc.RETRY_DELAY_SECONDS = original_delay
+
+
 test_strip_bot_mention()
 test_truncate()
 test_history_to_context()
@@ -322,4 +365,5 @@ test_chunk_reply()
 test_parse_llm_response()
 test_config_from_env()
 test_ask_llm_fallback_and_errors()
+test_ask_llm_retry()
 print("DEEPSEEK MODEL TESTS FINISHED")

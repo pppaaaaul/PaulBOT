@@ -37,6 +37,13 @@ REQUEST_TIMEOUT_SECONDS = 60
 # How much of a failing HTTP response body to surface in the error message.
 _ERROR_BODY_PREVIEW_LIMIT = 200
 
+# tokenrouter's free tier flaps occasionally: 502 "backend connect failed",
+# empty answers ("content": null), and brief rate-limit/saturation errors.
+# These are retried once after a short delay, using the same URL (path errors
+# like 404 instead fall back to the next candidate, never retried).
+_TRANSIENT_STATUS_CODES = frozenset({429, 502, 503, 504})
+RETRY_DELAY_SECONDS = 5
+
 # Web-search planning: query length cap and how many results to consider.
 MAX_SEARCH_QUERY_LENGTH = 200
 SEARCH_RESULTS_LIMIT = 6
@@ -54,10 +61,12 @@ PLAN_SEARCH_PROMPT = (
 
 class LLMError(ValueError):
     # Raised for any LLM call failure; subclasses ValueError to match the
-    # project-wide ValueError-for-errors convention.
-    def __init__(self, message: str, status: Optional[int] = None):
+    # project-wide ValueError-for-errors convention. `retryable` marks the
+    # transient gateway flaps (502 etc.) that ask_llm retries once.
+    def __init__(self, message: str, status: Optional[int] = None, retryable: bool = False):
         super().__init__(message)
         self.status = status
+        self.retryable = retryable
 
 
 @dataclass
@@ -206,7 +215,8 @@ def parse_llm_response(data: dict) -> str:
     except (KeyError, IndexError, TypeError):
         raise LLMError("LLM response was missing the answer content")
     if not content or not content.strip():
-        raise LLMError("LLM returned an empty answer")
+        # tokenrouter flapping also shows up as HTTP 200 with content: null.
+        raise LLMError("LLM returned an empty answer", retryable=True)
     return content.strip()
 
 
@@ -225,7 +235,8 @@ async def request_chat(session: aiohttp.ClientSession, config: LLMConfig, messag
         raise LLMError(f"LLM request to {url} failed: {e}")
     if resp.status != 200:
         preview = truncate(body.strip(), _ERROR_BODY_PREVIEW_LIMIT)
-        raise LLMError(f"LLM endpoint returned HTTP {resp.status}: {preview}", status=resp.status)
+        raise LLMError(f"LLM endpoint returned HTTP {resp.status}: {preview}", status=resp.status,
+                       retryable=resp.status in _TRANSIENT_STATUS_CODES)
     if not body.strip():
         # tokenrouter's unused /chat/completions path answers 200 with an empty
         # body; report it as 404 so ask_llm falls back to the next candidate.
@@ -243,20 +254,28 @@ async def ask_llm(
     preferred_url: Optional[str] = None,
 ) -> Tuple[str, str]:
     # Asks the LLM and returns (answer, working_url). Tries the preferred URL
-    # first if given, and only falls back to the next candidate on a 404 (a
-    # wrong path); any other error is raised immediately without retrying.
+    # first if given; falls back to the next candidate only on 404 (wrong path
+    # or tokenrouter's empty-body stub). Transient failures (502/429/503/504
+    # gateway flaps, empty answers) are retried once on the SAME url after a
+    # short delay; any other error is raised immediately.
     urls = candidate_urls(config.base_url)
     if preferred_url and preferred_url in urls:
         urls.remove(preferred_url)
         urls.insert(0, preferred_url)
     last_error: Optional[LLMError] = None
     for url in urls:
-        try:
-            data = await request_chat(session, config, messages, url)
-        except LLMError as e:
-            if e.status == 404:
+        for attempt in (1, 2):
+            try:
+                data = await request_chat(session, config, messages, url)
+                return parse_llm_response(data), url
+            except LLMError as e:
                 last_error = e
-                continue
-            raise
-        return parse_llm_response(data), url
+                if e.status == 404:
+                    break  # wrong route: no retry, try the next candidate url
+                if not e.retryable:
+                    raise
+                if attempt == 2:
+                    raise
+                # Transient router flap: wait briefly, then retry the same url.
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
     raise last_error
