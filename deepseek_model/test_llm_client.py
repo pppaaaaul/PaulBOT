@@ -284,6 +284,15 @@ def test_ask_llm_fallback_and_errors():
     else:
         raise ValueError("Error(test_ask_llm_fallback_and_errors), malformed JSON must raise")
 
+    # 200 with an EMPTY body (tokenrouter's dead /chat/completions stub) must
+    # fall back to the next endpoint instead of being parsed as a failure.
+    session = FakeSession([FakeResponse(200, ""), FakeResponse(200, _ok_body("real"))])
+    answer, url = asyncio.run(ask_llm(session, config, []))
+    if answer != "real" or url != "https://api.example.com/chat/completions":
+        raise ValueError(f"Error(test_ask_llm_fallback_and_errors), empty-body endpoint not skipped: {answer} {url}")
+    if len(session.requests) != 2:
+        raise ValueError("Error(test_ask_llm_fallback_and_errors), empty body must trigger exactly one fallback")
+
     # Preferred URL is tried first and only once.
     session = FakeSession([FakeResponse(200, _ok_body("hi"))])
     answer, url = asyncio.run(ask_llm(

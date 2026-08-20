@@ -226,6 +226,10 @@ async def request_chat(session: aiohttp.ClientSession, config: LLMConfig, messag
     if resp.status != 200:
         preview = truncate(body.strip(), _ERROR_BODY_PREVIEW_LIMIT)
         raise LLMError(f"LLM endpoint returned HTTP {resp.status}: {preview}", status=resp.status)
+    if not body.strip():
+        # tokenrouter's unused /chat/completions path answers 200 with an empty
+        # body; report it as 404 so ask_llm falls back to the next candidate.
+        raise LLMError("LLM endpoint returned an empty response", status=404)
     try:
         return json.loads(body)
     except json.JSONDecodeError:
